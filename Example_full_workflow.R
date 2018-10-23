@@ -10,6 +10,7 @@
 # biocLite("SingleCellExperiment", dependencies=TRUE, lib="~/R/library")
 
 # setting necessary parameters
+# ! Please, select an existing directory where you want to store output files
 dataDirectory <- "/g/lancrin/People/Pauline/data/Shiny_Conclus/Example_full_workflow"
 experimentName <- "Bergiers"
 
@@ -56,7 +57,9 @@ countMatrix <- countMatrix[,colData$cellName]
 # setting seed for reproducibility
 set.seed(42)
 # loading functions
-source("/g/lancrin/People/Pauline/data/Shiny_Conclus/conclus_bioconductor/visualisation_and_clustering_functions.R")
+# ! Please, enter the path to visualisation_and_clustering_functions.R which
+# you downloaded from GitHub
+source("/g/lancrin/People/Pauline/data/Shiny_Conclus/scripts-master/visualisation_and_clustering_functions.R")
 
 ### CONCLUS workflow ###
 # 1. Normalisation
@@ -101,7 +104,7 @@ sceObjectCONCLUS <- addClusteringManually(fileName = "clusters_table.tsv",
     sceObject = sceObjectCONCLUS, 
     columnName = "clusters")
 
-# 4.1 Redo the analysis with manual clustering
+# 4.1 Redo the analysis with manual clustering (optional)
 sceObjectCONCLUS <- runCONCLUS(sceObjectCONCLUS, dataDirectory, experimentName, 
                         preClustered = T,
                         cores = 14, # 14 for servers, 1 for PC
@@ -109,9 +112,10 @@ sceObjectCONCLUS <- runCONCLUS(sceObjectCONCLUS, dataDirectory, experimentName,
                                          "coral1", "cornflowerblue"))
 
 # 5. Plotting heatmaps
+genesNumber <- 10
 markersClusters <- getMarkerGenes(dataDirectory, sceObjectCONCLUS, 
                                   experimentName = experimentName,
-                                  genesNumber = 30)
+                                  genesNumber = genesNumber)
 orderClusters <- T
 orderGenes <- T
 meanCentered <- T
@@ -121,12 +125,13 @@ plotCellHeatmap(markersClusters, sceObjectCONCLUS, dataDirectory,
                        length(levels(colData(sceObjectCONCLUS)$clusters)),
                        "_meanCentered",meanCentered,
                        "_orderClusters",orderClusters,
-                       "_orderGenes",orderGenes), 
+                       "_orderGenes",orderGenes,"_top",
+                       genesNumber, "markersPerCluster"), 
                 meanCentered = meanCentered, 
                 colorPalette = brewer.pal(10, "Paired"),
                 orderClusters = orderClusters,
                 orderGenes = orderGenes,
-                fontsize_row = 3,
+                fontsize_row = 5,
                 statePalette = c("bisque", "cadetblue2", 
                                  "coral1", "cornflowerblue"),
                 color = colorRampPalette(c("#023b84","#4b97fc", 

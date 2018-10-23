@@ -29,7 +29,7 @@ suppressMessages(library(biomaRt, warn.conflicts = F))
 suppressMessages(library(org.Mm.eg.db, warn.conflicts = F))
 
 checkTSNE <- function(dataDirectory, experimentName, PCs=c(4, 6, 8, 10, 20, 40, 50), 
-                      perps=c(30, 40)){
+                      perplexities=c(30, 40)){
   
   SAMP <- experimentName
   
@@ -39,7 +39,7 @@ checkTSNE <- function(dataDirectory, experimentName, PCs=c(4, 6, 8, 10, 20, 40, 
     
     coordinatesName <- paste0(experimentName, '_tsne_coordinates_', i, "_",
                               PCs[i %% length(PCs)], "PCs_",
-                              perps[((i-1) %/% length(PCs)) + 1], "perp")
+                              perplexities[((i-1) %/% length(PCs)) + 1], "perp")
   
     
     TSNEres_1 <- read.delim(file.path(paste0(dataDirectory, "/tsnes"), 
@@ -62,7 +62,7 @@ checkTSNE <- function(dataDirectory, experimentName, PCs=c(4, 6, 8, 10, 20, 40, 
 ### this function calculates PCA and then tSNE with PCs and perplexities ###
 ### it returns a list of pSNE = PCA+tSNE results ###
 ### to get XY coordinates call psne_res[1,i][[1]] ###
-### i = [1:length(PCs)*length(perps)] is a number of iteration ###
+### i = [1:length(PCs)*length(perplexities)] is a number of iteration ###
 
 getTSNEresults <- function(expressionMatrix, cores=1,
                            PCs=c(4, 6, 8, 10, 20, 40, 50), 
@@ -202,7 +202,7 @@ runCONCLUS <- function(sceObject, dataDirectory, experimentName,
                        clusteringMethod="ward.D2",
                        epsilon=c(1.3, 1.4, 1.5), minPoints=c(3, 4), k=0, 
                        PCs=c(4, 6, 8, 10, 20, 40, 50),
-                       perplexity=c(30,40), 
+                       perplexities=c(30,40), 
                        randomSeed = 42,
                        deepSplit=4, preClustered = F,
                        orderClusters = FALSE,
@@ -215,7 +215,7 @@ runCONCLUS <- function(sceObject, dataDirectory, experimentName,
   # Generating 2D tSNE plots
   tSNEResults <- generateTSNECoordinates(sceObject, dataDirectory, 
                                           experimentName, PCs=PCs, 
-                                          perps=perplexity,
+                                          perplexities=perplexities,
                                           randomSeed = randomSeed)
 
   if(preClustered){
@@ -242,7 +242,7 @@ runCONCLUS <- function(sceObject, dataDirectory, experimentName,
                                        clusteringMethod=clusteringMethod,
                                        deleteOutliers = deleteOutliers,
                                        PCs=PCs,
-                                       perplexity=perplexity, 
+                                       perplexities=perplexities, 
                                        randomSeed = randomSeed)
     sceObjectFiltered <- clusteringResults[[1]]
     cellsSimilarityMatrix <- clusteringResults[[2]]
@@ -263,14 +263,14 @@ runCONCLUS <- function(sceObject, dataDirectory, experimentName,
                      plotPDF = plotPDFcellSim)
   
   plotClusteredTSNE(sceObjectFiltered, dataDirectory, experimentName,
-                    PCs=PCs, perps=perplexity, colorPalette,
+                    PCs=PCs, perplexities=perplexities, colorPalette,
                     columnName = "clusters")
   plotClusteredTSNE(sceObjectFiltered, dataDirectory, experimentName,
-                    PCs=PCs, perps=perplexity, colorPalette,
+                    PCs=PCs, perplexities=perplexities, colorPalette,
                     columnName = "noColor")
   if(any(colnames(colData(sceObjectFiltered)) %in% "state")){
       plotClusteredTSNE(sceObjectFiltered, dataDirectory, experimentName,
-                        PCs=PCs, perps=perplexity, colorPalette,
+                        PCs=PCs, perplexities=perplexities, colorPalette,
                         columnName = "state")
   }
   
@@ -327,7 +327,7 @@ initialisePath <- function(dataDirectory){
 generateTSNECoordinates <- function(sceObject, dataDirectory, experimentName,
                                     randomSeed=42, cores=14, 
                                     PCs=c(4, 6, 8, 10, 20, 40, 50), 
-                                    perps=c(30,40)){
+                                    perplexities=c(30,40)){
   # generates several tSNE coordinates based on 
   # different perplexity and number of PCs
   # writes coordinates in special folder
@@ -336,7 +336,7 @@ generateTSNECoordinates <- function(sceObject, dataDirectory, experimentName,
   tSNEDirectory <- "tsnes"
   message(paste0("Running TSNEs using ", cores, " cores."))
   TSNEres <- getTSNEresults(exprs(sceObject), cores=cores, PCs=PCs, 
-                            perplexities=perps, randomSeed=randomSeed)
+                            perplexities=perplexities, randomSeed=randomSeed)
   
   PCA <- rep(PCs, length(perplexities))
   perp <- rep(perplexities, each=length(PCs))
@@ -345,7 +345,7 @@ generateTSNECoordinates <- function(sceObject, dataDirectory, experimentName,
   filesList <- list.files(outputDir, pattern = "_tsne_coordinates_")
   deletedFiles <- sapply(filesList, function(fileName) deleteFile(fileName, 
                                                                   outputDir))
-  for (i in 1:(length(PCs)*length(perps))){
+  for (i in 1:(length(PCs)*length(perplexities))){
     write.table(TSNEres[1, i][[1]],
                 file=file.path(dataDirectory, tSNEDirectory,
                     paste0(experimentName,'_tsne_coordinates_', i, "_" ,
@@ -728,7 +728,7 @@ Using the default version 'FALSE'.")
 plotClusteredTSNE <- function(sceObject, dataDirectory, experimentName,
                               colorPalette = "default",
                               PCs=c(4, 6, 8, 10, 20, 40, 50),
-                              perps=c(30, 40),
+                              perplexities=c(30, 40),
                               columnName="clusters",
                               width=8, height=6.5, onefile=FALSE, #pdf 
                               family, title, fonts, version,
@@ -764,7 +764,7 @@ plotClusteredTSNE <- function(sceObject, dataDirectory, experimentName,
   PCA <- rep(PCs, length(perplexities))
   perp <- rep(perplexities, each=length(PCs))
   
-  for(i in 1:(length(PCs)*length(perps))){
+  for(i in 1:(length(PCs)*length(perplexities))){
     
     coordinatesName <- paste0(experimentName, '_tsne_coordinates_', i, "_",
                               PCA[i], "PCs_", perp[i], "perp")
@@ -1355,7 +1355,7 @@ runClustering <- function(tSNEResults, # for deleteOutliers = FALSE
                           cores=14,
                           deleteOutliers = TRUE,
                           PCs=c(4, 6, 8, 10, 20, 40, 50), 
-                          perplexity=c(30,40), # for deleteOutliers = TRUE
+                          perplexities=c(30,40), # for deleteOutliers = TRUE
                           randomSeed = 42){
   # Aggregates all the clustering parts. Takes tSNE coordinates and gives
   # results of final clustering: sceObject and cell correlation matrix
@@ -1375,8 +1375,8 @@ runClustering <- function(tSNEResults, # for deleteOutliers = FALSE
       tSNEResultsFiltered <- generateTSNECoordinates(sceObjectFiltered, 
                                                      dataDirectory, 
                                                      experimentName, PCs=PCs, 
-                                                     perps=perplexity,
-                                                     randomSeed = randomSeed)
+                                                     perplexities=perplexities,
+                                                     randomSeed=randomSeed)
       
       dbscanResultsFiltered <- runDBSCAN(tSNEResultsFiltered, sceObjectFiltered, 
                                          dataDirectory, 
