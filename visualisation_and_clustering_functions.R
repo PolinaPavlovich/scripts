@@ -557,10 +557,12 @@ clusterCells <- function(dbscanMatrix, sceObject, clusterNumber=0,
   clusteringTree <- hclust(distanceMatrix, method=clusteringMethod)
   
   if(clusterNumber == 0){
+    message(paste0("Assigning cells to clusters. DeepSplit = ", deepSplit))
     clusters <- unname(cutreeDynamic(clusteringTree, 
                                      distM=as.matrix(distanceMatrix), 
                                      verbose=0, deepSplit = deepSplit))  
   } else {
+    message(paste0("Assigning cells to ", clusterNumber, " clusters."))
     clusters <- cutree(clusteringTree, k=clusterNumber)
   }
   
@@ -995,7 +997,7 @@ rankGenesInternal <- function(expr, colData, column, simMed, outputDir,
   
     stopifnot(all(colnames(expr) == rownames(colData)))
     groups <- unique(colData[,column])
-    
+    simMed = simMed + 0.05
     for(i in 1:length(groups)){
         message(paste("Working on the file", i))
         tTestPval <- data.frame(Gene=rownames(expr))
@@ -1098,18 +1100,29 @@ orderCellsInCluster <- function(cluster, colData, mtx,
   # Uses for ordering matrix to further plot it with pheatmap()
   
   cells <- colData[colData$clusters == cluster, ]$cellName
-  tree <- hclust(dist(t(mtx[, cells])), method=clusteringMethod)
-  return(cells[tree$order])
+  if(length(cells) > 2){
+      tree <- hclust(dist(t(mtx[, cells])), method=clusteringMethod)
+      return(cells[tree$order])
+  }else{
+      return(cells)
+  }
+  
 }
 
 orderGenesInCluster <- function(cluster, markersClusters, mtx,
                                 clusteringMethod="ward.D2"){
     # Order cells according to clustering results
     # Uses for ordering matrix to further plot it with pheatmap()
-    
+
     genes <- markersClusters[markersClusters$clusters == cluster, ]$geneName
-    tree <- hclust(dist(mtx[genes, ]), method=clusteringMethod)
-    return(genes[tree$order])
+    if(length(genes) > 2){
+        tree <- hclust(dist(mtx[genes, ]), method=clusteringMethod)
+        return(genes[tree$order])
+    }else{
+        return(genes)
+    }
+    
+    
 }
 
 generateAnnotationColors <- function(colData, colorPaletteParameter,
@@ -1388,7 +1401,6 @@ runClustering <- function(tSNEResults, # for deleteOutliers = FALSE
   }
   
   # assigning cells to cluster
-  message(paste0("Assigning cells to clusters. DeepSplit = ", deepSplit))
   clusteringResults <- clusterCells(dbscanResultsFiltered, sceObjectFiltered, 
                                     clusterNumber=k, deepSplit=deepSplit,
                                     clusteringMethod=clusteringMethod,
@@ -1418,7 +1430,7 @@ getKEGGGenes <- function(pathwayID, sceObject, species="mmu"){
 }
 
 plotGeneExpression <- function(geneName, experimentName, dataDirectory, 
-                               sceObject, tsneIndex=1,
+                               sceObject, tSNEpicture=1,
                                width=8, height=6.5, onefile=FALSE, #pdf 
                                family, title, fonts, version,
                                paper, encoding, bg, fg, pointsize, 
@@ -1439,24 +1451,24 @@ plotGeneExpression <- function(geneName, experimentName, dataDirectory,
   clustersNumber <- length(unique(colData(sceObject)$clusters))
   
   coordsName <- list.files(file.path(dataDirectory, tSNEDirectory),
-                          pattern = paste0(experimentName,'_tsne_coordinates_', 
-                                           tsneIndex, '_'))
+                          pattern = paste0(experimentName,'_tsne_coordinates_',
+                                           tSNEpicture, "_"))
   
   tSNECoords <- read.delim(file.path(dataDirectory, tSNEDirectory, coordsName),
                         stringsAsFactors=FALSE)
   
-  tSNECoords <- tSNECoords[rownames(tSNECoords) %in% 
-                               colData(sceObject)$cellName, ]
+  tSNECoords <- tSNECoords[colData(sceObject)$cellName, ]
 
   if(!geneName %in% rownames(exprs(sceObject))){
     print("Gene is not found in expression matrix")
   }
   
-  stopifnot(all(rownames(tSNECoords)) == colnames(sceObject))
+  stopifnot(all(rownames(tSNECoords) == colnames(sceObject)))
   tSNECoords$expression <- exprs(sceObject)[geneName, ]
   
   pdf(file.path(dataDirectory, graphsDirectory, paste0(paste(experimentName, 
-                    "tSNE", clustersNumber, "clusters" , geneName, tsneIndex, 
+                    "tSNE", clustersNumber, "clusters" , geneName,
+                    "tSNEpicture", tSNEpicture, 
                     sep="_"), ".pdf")), 
       width=width, height=height, onefile=onefile, # not changed by default
       family=family, title=title, fonts=fonts, version=version,
@@ -1464,14 +1476,16 @@ plotGeneExpression <- function(geneName, experimentName, dataDirectory,
       pagecentre=pagecentre, colormodel=colormodel,
       useDingbats=useDingbats, useKerning=useKerning, 
       fillOddEven=fillOddEven, compress=compress)
-  tmp <- ggplot(tSNECoords, aes(x=X1, y=X2, color=expression)) + 
+  tmp <- ggplot(tSNECoords, aes(x=tSNECoords[,1], 
+                                y=tSNECoords[,2], color=expression)) + 
     geom_point(size=I(1)) +
-    scale_colour_gradientn(colours=brewer.pal(9, "OrRd")[0:9])
+    scale_colour_gradientn(colours=alpha(colorRampPalette(c("grey","red",
+                                                        "#7a0f09", 
+                                                        "black"))(100), 0.8))
+  #brewer.pal(9, "OrRd")[0:9]
   print(tmp)
   
-  supressedMessage <- dev.off()
-  
-  
+  dev.off()
 }
 
 exportClusteringResults <- function(sceObject, dataDirectory,
@@ -1617,10 +1631,12 @@ considering them as SYMBOLs.")
     return(rowdata)
 }
 
-filterCells <- function(countMatrix, colData,
+filterCells <- function(countMatrix, colData, genesSumThr = 100,
                         MoreBetter = c("genesNum", "sumCodPer", "genesSum"),
                         MoreWorse = c("sumMtPer")){
     message("Running filterCells.")
+    countMatrix <- countMatrix[,colSums(countMatrix) > genesSumThr]
+    colData <- colData[colnames(countMatrix),]
     mb <- MoreBetter
     mw <- MoreWorse
     
@@ -1764,7 +1780,8 @@ normaliseCountMatrix <- function(countMatrix,
                                  sizes=c(20,40,60,80,100),
                                  rowData=NULL, 
                                  colData=NULL,
-                                 alreadyCellFiltered = FALSE){
+                                 alreadyCellFiltered = FALSE,
+                                 runQuickCluster = TRUE){
     # Does normalisation of count matrix with.
     # There are 2 possible methods: "default" or "census"
     # The function returns SCE object with normalised count matrix
@@ -1794,7 +1811,7 @@ normaliseCountMatrix <- function(countMatrix,
         # normalization
         message("Running normalization. It can take a while, depends on the 
 number of cells.")
-        if(ncol(countMatrix) > 250){
+        if(runQuickCluster){
             cl <- tryCatch(scran::quickCluster(sce), error=function(e) NULL)
         }else{
             cl <- NULL
