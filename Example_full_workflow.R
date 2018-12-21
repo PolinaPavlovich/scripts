@@ -1,3 +1,5 @@
+# The updated version is available on https://github.com/PolinaPavlovich/CONCLUS
+
 # install all needed packages 
 # #cran
 # install.packages(c("ggplot2", "Matrix", "dbscan", "pheatmap", "fpc", "zoo",

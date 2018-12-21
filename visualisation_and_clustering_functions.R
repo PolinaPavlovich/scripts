@@ -1,3 +1,5 @@
+# The updated version is available on https://github.com/PolinaPavlovich/CONCLUS
+
 # #cran
 # install.packages(c("ggplot2", "Matrix", "dbscan", "pheatmap", "fpc", 
 #"dynamicTreeCut", "factoextra", "digest", "RColorBrewer", "doParallel"))
