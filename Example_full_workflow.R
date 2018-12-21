@@ -1,4 +1,4 @@
-# The updated version is available on https://github.com/PolinaPavlovich/CONCLUS
+# The updated version is available on https://github.com/PolinaPavlovich/CONCLUS .
 
 # install all needed packages 
 # #cran
